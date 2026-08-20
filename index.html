@@ -58,6 +58,7 @@
     <select id="fFalta" onchange="render()"><option value="">Completude (todos)</option><option value="falta">⚠️ Faltando informação</option><option value="ok">✅ Cadastro completo</option></select>
     <select id="fPrio" onchange="render()"><option value="">Toda prioridade</option><option>Alta</option><option>Média</option><option>Baixa</option></select>
     <select id="fVend" onchange="render()"><option value="">Todo vendedor</option><option value="__sem">— sem dono —</option></select>
+    <select id="fDDD" onchange="render()"><option value="">Todo DDD</option></select>
     <button class="btn btn-cinza" onclick="limpar()">Limpar</button>
   </div>
   <div class="stats" id="stats"></div>
@@ -100,9 +101,13 @@ function start(){
     opts('fReg',Object.keys(regs).sort(),true);opts('fSit',Object.keys(sits).sort(),true);opts('fStatus',STATUS,true);
     var fv=document.getElementById('fVend'),cur=fv.value;
     fv.innerHTML='<option value="">Todo vendedor</option><option value="__sem">— sem dono —</option>'+Object.keys(vends).sort().map(function(v){return '<option>'+esc(v)+'</option>'}).join('');fv.value=cur;
+    var ddds={};DADOS.forEach(function(o){var d=getDDD(o);if(d)ddds[d]=(ddds[d]||0)+1});
+    var fd=document.getElementById('fDDD'),cd=fd.value;
+    fd.innerHTML='<option value="">Todo DDD</option>'+Object.keys(ddds).sort().map(function(d){return '<option value="'+d+'">DDD '+d+' ('+ddds[d]+')</option>'}).join('');fd.value=cd;
     render();
   },function(e){console.warn(e.message)});
 }
+function getDDD(o){var m=(o.telefone||'').match(/\((\d{2})\)/);return m?m[1]:''}
 function incompleto(o){
   var semNome = !o.nome || o.nome.indexOf('@')>=0 || (o.email && o.nome.toLowerCase()===o.email);
   return (!o.telefone) || (!o.cidade) || semNome;
@@ -120,6 +125,7 @@ function passa(o){
   var ft=document.getElementById('fTel').value;if(ft==='com'&&!o.telefone)return false;if(ft==='sem'&&o.telefone)return false;
   var fp=document.getElementById('fPrio').value;if(fp&&(o.prioridade||'')!==fp)return false;
   var fv=document.getElementById('fVend').value;if(fv==='__sem'&&(o.vendedor||''))return false;if(fv&&fv!=='__sem'&&(o.vendedor||'')!==fv)return false;
+  var fd=document.getElementById('fDDD').value;if(fd&&getDDD(o)!==fd)return false;
   return true;
 }
 var PRIO_ORD={'Alta':0,'Média':1,'Baixa':2};
@@ -158,7 +164,7 @@ function render(){
   }).join('');
   document.getElementById('foot').textContent=lista.length>CAP?('Mostrando os primeiros '+CAP+' de '+lista.length+' — refine os filtros pra ver o resto.'):(lista.length+' contato(s).');
 }
-function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fFalta','fPrio','fVend'].forEach(function(i){document.getElementById(i).value=''});render()}
+function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fFalta','fPrio','fVend','fDDD'].forEach(function(i){document.getElementById(i).value=''});render()}
 window.addEventListener('load',function(){
   showLogin();firebase.initializeApp(FB);fbAuth=firebase.auth();fbDb=firebase.firestore();
   fbAuth.onAuthStateChanged(function(u){if(u){hideLogin();start()}else{showLogin()}});
