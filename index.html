@@ -29,6 +29,7 @@
   tr:hover td{background:#f8fbff}
   .pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
   .b-cli{background:#dcfce7;color:#166534}.b-lead{background:#e0f2fe;color:#075985}.b-ambos{background:#fef9c3;color:#854d0e}
+  .p-Alta{background:#fee2e2;color:#991b1b}.p-Média{background:#fef9c3;color:#854d0e}.p-Baixa{background:#e2e8f0;color:#475569}
   .mut{color:var(--mut)} .wa{color:var(--verde);text-decoration:none;font-weight:700}
   select.st{border:1px solid var(--linha);border-radius:6px;padding:4px;font-size:12px}
   input.an{border:1px solid var(--linha);border-radius:6px;padding:4px;font-size:12px;width:140px}
@@ -55,12 +56,14 @@
     <select id="fStatus" onchange="render()"><option value="">Todo status</option></select>
     <select id="fTel" onchange="render()"><option value="">Com/sem telefone</option><option value="com">Só com telefone</option><option value="sem">Só sem telefone</option></select>
     <select id="fFalta" onchange="render()"><option value="">Completude (todos)</option><option value="falta">⚠️ Faltando informação</option><option value="ok">✅ Cadastro completo</option></select>
+    <select id="fPrio" onchange="render()"><option value="">Toda prioridade</option><option>Alta</option><option>Média</option><option>Baixa</option></select>
+    <select id="fVend" onchange="render()"><option value="">Todo vendedor</option><option value="__sem">— sem dono —</option></select>
     <button class="btn btn-cinza" onclick="limpar()">Limpar</button>
   </div>
   <div class="stats" id="stats"></div>
   <div class="tbl">
     <table>
-      <thead><tr><th>Nome</th><th>Empresa</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
+      <thead><tr><th>Prior.</th><th>Nome</th><th>Empresa</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Vendedor</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
       <tbody id="tb"></tbody>
     </table>
     <div class="foot" id="foot"></div>
@@ -93,8 +96,10 @@ function opts(sel,arr,keep){var s=document.getElementById(sel),cur=keep?s.value:
 function start(){
   fbDb.collection(COL).onSnapshot(function(snap){
     DADOS=[];snap.forEach(function(d){var o=d.data();o.__id=d.id;DADOS.push(o)});
-    var regs={},sits={};DADOS.forEach(function(o){if(o.regiao)regs[o.regiao]=1;if(o.situacao)sits[o.situacao]=1});
+    var regs={},sits={},vends={};DADOS.forEach(function(o){if(o.regiao)regs[o.regiao]=1;if(o.situacao)sits[o.situacao]=1;if(o.vendedor)vends[o.vendedor]=1});
     opts('fReg',Object.keys(regs).sort(),true);opts('fSit',Object.keys(sits).sort(),true);opts('fStatus',STATUS,true);
+    var fv=document.getElementById('fVend'),cur=fv.value;
+    fv.innerHTML='<option value="">Todo vendedor</option><option value="__sem">— sem dono —</option>'+Object.keys(vends).sort().map(function(v){return '<option>'+esc(v)+'</option>'}).join('');fv.value=cur;
     render();
   },function(e){console.warn(e.message)});
 }
@@ -113,13 +118,19 @@ function passa(o){
   var fs=document.getElementById('fSit').value;if(fs&&o.situacao!==fs)return false;
   var fst=document.getElementById('fStatus').value;if(fst&&(o.status||'A trabalhar')!==fst)return false;
   var ft=document.getElementById('fTel').value;if(ft==='com'&&!o.telefone)return false;if(ft==='sem'&&o.telefone)return false;
+  var fp=document.getElementById('fPrio').value;if(fp&&(o.prioridade||'')!==fp)return false;
+  var fv=document.getElementById('fVend').value;if(fv==='__sem'&&(o.vendedor||''))return false;if(fv&&fv!=='__sem'&&(o.vendedor||'')!==fv)return false;
   return true;
 }
+var PRIO_ORD={'Alta':0,'Média':1,'Baixa':2};
 function setStatus(id,v){fbDb.collection(COL).doc(id).update({status:v})}
 function setNota(id,v){fbDb.collection(COL).doc(id).update({anotacao:v})}
+function setVend(id,v){fbDb.collection(COL).doc(id).update({vendedor:v})}
 function wa(tel){var d=(tel||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return '<a class="wa" target="_blank" href="https://wa.me/'+d+'">'+esc(tel)+' 🟢</a>'}
 function render(){
   var lista=DADOS.filter(passa);
+  lista.sort(function(a,b){var d=(PRIO_ORD[a.prioridade]||9)-(PRIO_ORD[b.prioridade]||9);if(d)return d;
+    if(a.base!==b.base)return a.base==='clientes'?-1:(b.base==='clientes'?1:0);return 0;});
   var st=document.getElementById('stats');
   var cli=lista.filter(function(o){return o.base==='clientes'}).length,
       lead=lista.filter(function(o){return o.base==='leads'}).length,
@@ -134,17 +145,20 @@ function render(){
   document.getElementById('tb').innerHTML=slice.map(function(o){
     var bcls=o.base==='clientes'?'b-cli':(o.base==='ambos'?'b-ambos':'b-lead');
     var stsel='<select class="st" onchange="setStatus(\''+o.__id+'\',this.value)">'+STATUS.map(function(s){return '<option'+((o.status||'A trabalhar')===s?' selected':'')+'>'+s+'</option>'}).join('')+'</select>';
-    return '<tr><td>'+esc(o.nome||'—')+'</td><td>'+esc(o.empresa||'')+'</td>'+
+    var pr=o.prioridade||'';
+    return '<tr><td><span class="pill p-'+esc(pr)+'">'+esc(pr||'—')+'</span></td>'+
+      '<td>'+esc(o.nome||'—')+'</td><td>'+esc(o.empresa||'')+'</td>'+
       '<td>'+esc(o.cidade||'')+(o.regiao?'<br><span class="mut">'+esc(o.regiao)+'</span>':'')+'</td>'+
       '<td>'+(o.telefone?wa(o.telefone):'<span class="mut">'+(o.obs_tel?esc(o.obs_tel):'—')+'</span>')+'</td>'+
       '<td>'+(o.email?'<a href="mailto:'+esc(o.email)+'">'+esc(o.email)+'</a>':'<span class="mut">—</span>')+'</td>'+
       '<td>'+esc(o.origem||'')+'<br><span class="pill '+bcls+'">'+esc(o.base)+'</span></td>'+
+      '<td><input class="an" style="width:100px" value="'+esc(o.vendedor||'')+'" placeholder="dono..." onchange="setVend(\''+o.__id+'\',this.value)"></td>'+
       '<td>'+esc(o.situacao||'')+'</td><td>'+stsel+'</td>'+
       '<td><input class="an" value="'+esc(o.anotacao||'')+'" placeholder="anotar..." onchange="setNota(\''+o.__id+'\',this.value)"></td></tr>';
   }).join('');
   document.getElementById('foot').textContent=lista.length>CAP?('Mostrando os primeiros '+CAP+' de '+lista.length+' — refine os filtros pra ver o resto.'):(lista.length+' contato(s).');
 }
-function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fFalta'].forEach(function(i){document.getElementById(i).value=''});render()}
+function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fFalta','fPrio','fVend'].forEach(function(i){document.getElementById(i).value=''});render()}
 window.addEventListener('load',function(){
   showLogin();firebase.initializeApp(FB);fbAuth=firebase.auth();fbDb=firebase.firestore();
   fbAuth.onAuthStateChanged(function(u){if(u){hideLogin();start()}else{showLogin()}});
