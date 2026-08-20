@@ -54,6 +54,7 @@
     <select id="fSit" onchange="render()"><option value="">Toda situação</option></select>
     <select id="fStatus" onchange="render()"><option value="">Todo status</option></select>
     <select id="fTel" onchange="render()"><option value="">Com/sem telefone</option><option value="com">Só com telefone</option><option value="sem">Só sem telefone</option></select>
+    <select id="fFalta" onchange="render()"><option value="">Completude (todos)</option><option value="falta">⚠️ Faltando informação</option><option value="ok">✅ Cadastro completo</option></select>
     <button class="btn btn-cinza" onclick="limpar()">Limpar</button>
   </div>
   <div class="stats" id="stats"></div>
@@ -97,7 +98,14 @@ function start(){
     render();
   },function(e){console.warn(e.message)});
 }
+function incompleto(o){
+  var semNome = !o.nome || o.nome.indexOf('@')>=0 || (o.email && o.nome.toLowerCase()===o.email);
+  return (!o.telefone) || (!o.cidade) || semNome;
+}
 function passa(o){
+  var ff=document.getElementById('fFalta').value;
+  if(ff==='falta'&&!incompleto(o))return false;
+  if(ff==='ok'&&incompleto(o))return false;
   var q=document.getElementById('q').value.toLowerCase().trim();
   if(q){var t=(o.nome+' '+o.empresa+' '+o.email+' '+o.telefone+' '+o.cidade).toLowerCase();if(t.indexOf(q)<0)return false}
   var fr=document.getElementById('fReg').value;if(fr&&o.regiao!==fr)return false;
@@ -116,10 +124,12 @@ function render(){
   var cli=lista.filter(function(o){return o.base==='clientes'}).length,
       lead=lista.filter(function(o){return o.base==='leads'}).length,
       ctel=lista.filter(function(o){return o.telefone}).length,
-      ctrab=lista.filter(function(o){return (o.status||'A trabalhar')==='A trabalhar'}).length;
+      ctrab=lista.filter(function(o){return (o.status||'A trabalhar')==='A trabalhar'}).length,
+      cfalta=lista.filter(incompleto).length;
   st.innerHTML='<span class="chip">Resultado: <b>'+lista.length+'</b></span>'+
     '<span class="chip">Clientes: <b>'+cli+'</b></span><span class="chip">Leads: <b>'+lead+'</b></span>'+
-    '<span class="chip">Com telefone: <b>'+ctel+'</b></span><span class="chip">A trabalhar: <b>'+ctrab+'</b></span>';
+    '<span class="chip">Com telefone: <b>'+ctel+'</b></span><span class="chip">A trabalhar: <b>'+ctrab+'</b></span>'+
+    '<span class="chip">⚠️ Faltando info: <b>'+cfalta+'</b></span>';
   var CAP=400,slice=lista.slice(0,CAP);
   document.getElementById('tb').innerHTML=slice.map(function(o){
     var bcls=o.base==='clientes'?'b-cli':(o.base==='ambos'?'b-ambos':'b-lead');
@@ -134,7 +144,7 @@ function render(){
   }).join('');
   document.getElementById('foot').textContent=lista.length>CAP?('Mostrando os primeiros '+CAP+' de '+lista.length+' — refine os filtros pra ver o resto.'):(lista.length+' contato(s).');
 }
-function limpar(){['q','fReg','fBase','fSit','fStatus','fTel'].forEach(function(i){document.getElementById(i).value=''});render()}
+function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fFalta'].forEach(function(i){document.getElementById(i).value=''});render()}
 window.addEventListener('load',function(){
   showLogin();firebase.initializeApp(FB);fbAuth=firebase.auth();fbDb=firebase.firestore();
   fbAuth.onAuthStateChanged(function(u){if(u){hideLogin();start()}else{showLogin()}});
