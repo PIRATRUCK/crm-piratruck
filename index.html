@@ -48,6 +48,11 @@
 </header>
 
 <div class="wrap">
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button class="btn" id="tabC" onclick="setMode('c')" style="background:var(--azul);color:#fff">📇 Contatos</button>
+    <button class="btn btn-cinza" id="tabH" onclick="setMode('h')">🕘 Histórico de observações</button>
+  </div>
+  <div id="viewContatos">
   <div class="filtros">
     <input id="q" placeholder="🔎 buscar nome, empresa, e-mail, telefone, cidade..." oninput="render()">
     <select id="fReg" onchange="render()"><option value="">Todas as regiões</option></select>
@@ -69,7 +74,15 @@
     </table>
     <div class="foot" id="foot"></div>
   </div>
+  </div>
+
+  <div id="viewHist" style="display:none">
+    <input id="hq" placeholder="🔎 buscar na observação, contato ou empresa..." oninput="renderHist()" style="width:100%;border:1px solid var(--linha);border-radius:8px;padding:9px;margin-bottom:10px">
+    <div class="tbl"><table><thead><tr><th style="width:150px">Quando</th><th>Contato</th><th>Empresa</th><th>Observação</th></tr></thead><tbody id="hb"></tbody></table><div class="foot" id="hfoot"></div></div>
+  </div>
 </div>
+
+<div id="hov" style="position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;z-index:90"></div>
 
 <div id="ov"><div class="box">
   <div class="logo">📇</div><h1>CRM Piratruck</h1><p>Acesso restrito — entre com seu login.</p>
@@ -104,7 +117,7 @@ function start(){
     var ddds={};DADOS.forEach(function(o){var d=getDDD(o);if(d)ddds[d]=(ddds[d]||0)+1});
     var fd=document.getElementById('fDDD'),cd=fd.value;
     fd.innerHTML='<option value="">Todo DDD</option>'+Object.keys(ddds).sort().map(function(d){return '<option value="'+d+'">DDD '+d+' ('+ddds[d]+')</option>'}).join('');fd.value=cd;
-    render();
+    render();if(MODE==='h')renderHist();
   },function(e){console.warn(e.message)});
 }
 function getDDD(o){var m=(o.telefone||'').match(/\((\d{2})\)/);return m?m[1]:''}
@@ -135,6 +148,37 @@ function setVend(id,v){fbDb.collection(COL).doc(id).update({vendedor:v})}
 function marcarContato(id){var d=new Date();
   fbDb.collection(COL).doc(id).update({contato_seq:d.getTime(),ultimo_contato:d.toLocaleString('pt-BR'),status:'Contatado'})}
 function desfazerContato(id){fbDb.collection(COL).doc(id).update({contato_seq:0,ultimo_contato:''})}
+var MODE='c';
+function setMode(m){MODE=m;
+  document.getElementById('viewContatos').style.display=m==='c'?'block':'none';
+  document.getElementById('viewHist').style.display=m==='h'?'block':'none';
+  var tc=document.getElementById('tabC'),th=document.getElementById('tabH');
+  tc.style.background=m==='c'?'var(--azul)':'#e2e8f0';tc.style.color=m==='c'?'#fff':'#334155';
+  th.style.background=m==='h'?'var(--azul)':'#e2e8f0';th.style.color=m==='h'?'#fff':'#334155';
+  if(m==='h')renderHist();
+}
+function addObs(id,txt,inp){txt=(txt||'').trim();if(!txt)return;var d=new Date();
+  var o={ts:d.getTime(),quando:d.toLocaleString('pt-BR'),txt:txt};
+  fbDb.collection(COL).doc(id).update({historico:firebase.firestore.FieldValue.arrayUnion(o),anotacao:txt});
+  if(inp)inp.value='';}
+function verHist(id){var o=DADOS.find(function(x){return x.__id===id});if(!o)return;
+  var h=(o.historico||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0)});
+  var html='<div style="background:#fff;border-radius:12px;padding:18px;width:480px;max-width:92vw;max-height:80vh;overflow:auto">'+
+   '<h1 style="font-size:16px;margin:0 0 10px">🕘 '+esc(o.nome||'')+'</h1>'+
+   (h.length?h.map(function(x){return '<div style="border-bottom:1px solid var(--linha);padding:6px 0"><div class="mut" style="font-size:11px">'+esc(x.quando||'')+'</div>'+esc(x.txt||'')+'</div>'}).join(''):'<p class="mut">Sem observações ainda.</p>')+
+   '<div style="margin-top:12px;text-align:right"><button class="btn btn-cinza" onclick="closeHov()">Fechar</button></div></div>';
+  var hov=document.getElementById('hov');hov.innerHTML=html;hov.style.display='flex';}
+function closeHov(){document.getElementById('hov').style.display='none'}
+function renderHist(){
+  var q=(document.getElementById('hq').value||'').toLowerCase().trim();
+  var all=[];DADOS.forEach(function(o){(o.historico||[]).forEach(function(h){all.push({o:o,h:h})})});
+  all.sort(function(a,b){return (b.h.ts||0)-(a.h.ts||0)});
+  if(q)all=all.filter(function(x){return ((x.h.txt||'')+' '+(x.o.nome||'')+' '+(x.o.empresa||'')).toLowerCase().indexOf(q)>=0});
+  document.getElementById('hb').innerHTML=all.slice(0,600).map(function(x){
+    return '<tr><td class="mut">'+esc(x.h.quando||'')+'</td><td>'+esc(x.o.nome||'—')+'</td><td>'+esc(x.o.empresa||'')+'</td><td>'+esc(x.h.txt||'')+'</td></tr>';
+  }).join('')||'<tr><td colspan="4" class="mut" style="padding:14px">Nenhuma observação registrada ainda. Escreva uma na aba Contatos.</td></tr>';
+  document.getElementById('hfoot').textContent=all.length+' observação(ões).';
+}
 function wa(tel){var d=(tel||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return '<a class="wa" target="_blank" href="https://wa.me/'+d+'">'+esc(tel)+' 🟢</a>'}
 function render(){
   var lista=DADOS.filter(passa);
@@ -172,7 +216,9 @@ function render(){
       '<td>'+esc(o.origem||'')+'<br><span class="pill '+bcls+'">'+esc(o.base)+'</span></td>'+
       '<td><input class="an" style="width:100px" value="'+esc(o.vendedor||'')+'" placeholder="dono..." onchange="setVend(\''+o.__id+'\',this.value)"></td>'+
       '<td>'+esc(o.situacao||'')+'</td><td>'+stsel+'</td>'+
-      '<td><input class="an" value="'+esc(o.anotacao||'')+'" placeholder="anotar..." onchange="setNota(\''+o.__id+'\',this.value)"></td></tr>';
+      '<td><input class="an" placeholder="nova observação..." onchange="addObs(\''+o.__id+'\',this.value,this)" onkeydown="if(event.key===\'Enter\')this.blur()">'+
+        (o.anotacao?'<div class="mut" style="font-size:11px;margin-top:2px">última: '+esc(o.anotacao)+' <a href="#" onclick="verHist(\''+o.__id+'\');return false">🕘'+((o.historico&&o.historico.length)||0)+'</a></div>':'')+
+      '</td></tr>';
   }).join('');
   document.getElementById('foot').textContent=lista.length>CAP?('Mostrando os primeiros '+CAP+' de '+lista.length+' — refine os filtros pra ver o resto.'):(lista.length+' contato(s).');
 }
