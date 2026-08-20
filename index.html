@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b5cad">
+<title>CRM Piratruck — Base de Clientes</title>
+<style>
+  :root{--azul:#0b5cad;--amarelo:#f5b700;--verde:#15803d;--vermelho:#b91c1c;--bg:#f1f5f9;--card:#fff;--linha:#e5e7eb;--txt:#0f172a;--mut:#64748b}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  header{background:#fff;border-bottom:3px solid var(--amarelo);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:10}
+  header .brand{display:flex;align-items:center;gap:10px}
+  header .logo{width:36px;height:36px;border-radius:8px;background:var(--azul);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+  header b{font-size:15px} header small{color:var(--mut);display:block;font-weight:400}
+  .btn{border:none;border-radius:8px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer}
+  .btn-cinza{background:#e2e8f0;color:#334155}
+  .wrap{max-width:1250px;margin:0 auto;padding:12px}
+  .filtros{background:#fff;border:1px solid var(--linha);border-radius:10px;padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .filtros input,.filtros select{border:1px solid var(--linha);border-radius:8px;padding:8px;font-size:13px;background:#fff}
+  #q{flex:1;min-width:180px}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .chip{background:#fff;border:1px solid var(--linha);border-radius:999px;padding:5px 11px;font-size:13px}
+  .chip b{color:var(--azul)}
+  .tbl{background:#fff;border:1px solid var(--linha);border-radius:10px;overflow:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:900px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--linha);vertical-align:top}
+  th{position:sticky;top:0;background:#f8fafc;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.02em;z-index:1}
+  tr:hover td{background:#f8fbff}
+  .pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+  .b-cli{background:#dcfce7;color:#166534}.b-lead{background:#e0f2fe;color:#075985}.b-ambos{background:#fef9c3;color:#854d0e}
+  .mut{color:var(--mut)} .wa{color:var(--verde);text-decoration:none;font-weight:700}
+  select.st{border:1px solid var(--linha);border-radius:6px;padding:4px;font-size:12px}
+  input.an{border:1px solid var(--linha);border-radius:6px;padding:4px;font-size:12px;width:140px}
+  .foot{padding:10px;text-align:center;color:var(--mut);font-size:12px}
+  #ov{position:fixed;inset:0;background:rgba(15,23,42,.7);display:flex;align-items:center;justify-content:center;z-index:100}
+  #ov .box{background:#fff;border-radius:14px;padding:24px;width:320px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  #ov h1{margin:0 0 4px;font-size:18px}#ov p{margin:0 0 14px;color:var(--mut);font-size:13px}
+  #ov input{width:100%;border:1px solid var(--linha);border-radius:8px;padding:11px;font-size:14px;margin-bottom:9px}
+  #ov .logo{width:46px;height:46px;border-radius:10px;background:var(--azul);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;margin:0 auto 12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">📇</div><div><b>CRM Piratruck</b><small>Base de clientes & leads</small></div></div>
+  <button class="btn btn-cinza" onclick="logout()">Sair</button>
+</header>
+
+<div class="wrap">
+  <div class="filtros">
+    <input id="q" placeholder="🔎 buscar nome, empresa, e-mail, telefone, cidade..." oninput="render()">
+    <select id="fReg" onchange="render()"><option value="">Todas as regiões</option></select>
+    <select id="fBase" onchange="render()"><option value="">Toda origem</option><option>clientes</option><option>leads</option><option>ambos</option></select>
+    <select id="fSit" onchange="render()"><option value="">Toda situação</option></select>
+    <select id="fStatus" onchange="render()"><option value="">Todo status</option></select>
+    <select id="fTel" onchange="render()"><option value="">Com/sem telefone</option><option value="com">Só com telefone</option><option value="sem">Só sem telefone</option></select>
+    <button class="btn btn-cinza" onclick="limpar()">Limpar</button>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Nome</th><th>Empresa</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+
+<div id="ov"><div class="box">
+  <div class="logo">📇</div><h1>CRM Piratruck</h1><p>Acesso restrito — entre com seu login.</p>
+  <input id="lEmail" type="email" placeholder="E-mail" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+  <input id="lPass" type="password" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+  <div id="lMsg" style="display:none;color:#b91c1c;font-size:12px;margin-bottom:8px"></div>
+  <button class="btn" style="width:100%;background:var(--azul);color:#fff" onclick="doLogin()">Entrar</button>
+</div></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+var FB={apiKey:"AIzaSyCjrbTh9_yovb2CRtsXNL6fuOEyXnpFvcY",authDomain:"painel-veiculos-4a6f5.firebaseapp.com",projectId:"painel-veiculos-4a6f5",storageBucket:"painel-veiculos-4a6f5.firebasestorage.app",messagingSenderId:"910089422875",appId:"1:910089422875:web:fbca3bf5d3f2bdeea950be"};
+var COL="crm_contatos";
+var STATUS=["A trabalhar","Contatado","Em conversa","Fechado","Perdido","Sem interesse"];
+var fbAuth,fbDb,DADOS=[];
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function showLogin(){document.getElementById('ov').style.display='flex'}
+function hideLogin(){document.getElementById('ov').style.display='none'}
+function doLogin(){var e=document.getElementById('lEmail').value.trim(),p=document.getElementById('lPass').value,m=document.getElementById('lMsg');m.style.display='none';
+  fbAuth.signInWithEmailAndPassword(e,p).catch(function(err){m.textContent='Erro: '+(err.code||err.message);m.style.display='block'})}
+function logout(){fbAuth.signOut()}
+function opts(sel,arr,keep){var s=document.getElementById(sel),cur=keep?s.value:'';s.innerHTML=s.options[0].outerHTML+arr.map(function(v){return '<option>'+esc(v)+'</option>'}).join('');if(keep)s.value=cur}
+function start(){
+  fbDb.collection(COL).onSnapshot(function(snap){
+    DADOS=[];snap.forEach(function(d){var o=d.data();o.__id=d.id;DADOS.push(o)});
+    var regs={},sits={};DADOS.forEach(function(o){if(o.regiao)regs[o.regiao]=1;if(o.situacao)sits[o.situacao]=1});
+    opts('fReg',Object.keys(regs).sort(),true);opts('fSit',Object.keys(sits).sort(),true);opts('fStatus',STATUS,true);
+    render();
+  },function(e){console.warn(e.message)});
+}
+function passa(o){
+  var q=document.getElementById('q').value.toLowerCase().trim();
+  if(q){var t=(o.nome+' '+o.empresa+' '+o.email+' '+o.telefone+' '+o.cidade).toLowerCase();if(t.indexOf(q)<0)return false}
+  var fr=document.getElementById('fReg').value;if(fr&&o.regiao!==fr)return false;
+  var fb=document.getElementById('fBase').value;if(fb&&o.base!==fb)return false;
+  var fs=document.getElementById('fSit').value;if(fs&&o.situacao!==fs)return false;
+  var fst=document.getElementById('fStatus').value;if(fst&&(o.status||'A trabalhar')!==fst)return false;
+  var ft=document.getElementById('fTel').value;if(ft==='com'&&!o.telefone)return false;if(ft==='sem'&&o.telefone)return false;
+  return true;
+}
+function setStatus(id,v){fbDb.collection(COL).doc(id).update({status:v})}
+function setNota(id,v){fbDb.collection(COL).doc(id).update({anotacao:v})}
+function wa(tel){var d=(tel||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return '<a class="wa" target="_blank" href="https://wa.me/'+d+'">'+esc(tel)+' 🟢</a>'}
+function render(){
+  var lista=DADOS.filter(passa);
+  var st=document.getElementById('stats');
+  var cli=lista.filter(function(o){return o.base==='clientes'}).length,
+      lead=lista.filter(function(o){return o.base==='leads'}).length,
+      ctel=lista.filter(function(o){return o.telefone}).length,
+      ctrab=lista.filter(function(o){return (o.status||'A trabalhar')==='A trabalhar'}).length;
+  st.innerHTML='<span class="chip">Resultado: <b>'+lista.length+'</b></span>'+
+    '<span class="chip">Clientes: <b>'+cli+'</b></span><span class="chip">Leads: <b>'+lead+'</b></span>'+
+    '<span class="chip">Com telefone: <b>'+ctel+'</b></span><span class="chip">A trabalhar: <b>'+ctrab+'</b></span>';
+  var CAP=400,slice=lista.slice(0,CAP);
+  document.getElementById('tb').innerHTML=slice.map(function(o){
+    var bcls=o.base==='clientes'?'b-cli':(o.base==='ambos'?'b-ambos':'b-lead');
+    var stsel='<select class="st" onchange="setStatus(\''+o.__id+'\',this.value)">'+STATUS.map(function(s){return '<option'+((o.status||'A trabalhar')===s?' selected':'')+'>'+s+'</option>'}).join('')+'</select>';
+    return '<tr><td>'+esc(o.nome||'—')+'</td><td>'+esc(o.empresa||'')+'</td>'+
+      '<td>'+esc(o.cidade||'')+(o.regiao?'<br><span class="mut">'+esc(o.regiao)+'</span>':'')+'</td>'+
+      '<td>'+(o.telefone?wa(o.telefone):'<span class="mut">'+(o.obs_tel?esc(o.obs_tel):'—')+'</span>')+'</td>'+
+      '<td>'+(o.email?'<a href="mailto:'+esc(o.email)+'">'+esc(o.email)+'</a>':'<span class="mut">—</span>')+'</td>'+
+      '<td>'+esc(o.origem||'')+'<br><span class="pill '+bcls+'">'+esc(o.base)+'</span></td>'+
+      '<td>'+esc(o.situacao||'')+'</td><td>'+stsel+'</td>'+
+      '<td><input class="an" value="'+esc(o.anotacao||'')+'" placeholder="anotar..." onchange="setNota(\''+o.__id+'\',this.value)"></td></tr>';
+  }).join('');
+  document.getElementById('foot').textContent=lista.length>CAP?('Mostrando os primeiros '+CAP+' de '+lista.length+' — refine os filtros pra ver o resto.'):(lista.length+' contato(s).');
+}
+function limpar(){['q','fReg','fBase','fSit','fStatus','fTel'].forEach(function(i){document.getElementById(i).value=''});render()}
+window.addEventListener('load',function(){
+  showLogin();firebase.initializeApp(FB);fbAuth=firebase.auth();fbDb=firebase.firestore();
+  fbAuth.onAuthStateChanged(function(u){if(u){hideLogin();start()}else{showLogin()}});
+});
+</script>
+</body>
+</html>
