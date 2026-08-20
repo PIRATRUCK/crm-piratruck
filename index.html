@@ -64,7 +64,7 @@
   <div class="stats" id="stats"></div>
   <div class="tbl">
     <table>
-      <thead><tr><th>Prior.</th><th>Nome</th><th>Empresa</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Vendedor</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
+      <thead><tr><th>Fila</th><th>Prior.</th><th>Nome</th><th>Empresa</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Vendedor</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
       <tbody id="tb"></tbody>
     </table>
     <div class="foot" id="foot"></div>
@@ -132,18 +132,29 @@ var PRIO_ORD={'Alta':0,'Média':1,'Baixa':2};
 function setStatus(id,v){fbDb.collection(COL).doc(id).update({status:v})}
 function setNota(id,v){fbDb.collection(COL).doc(id).update({anotacao:v})}
 function setVend(id,v){fbDb.collection(COL).doc(id).update({vendedor:v})}
+function marcarContato(id){var d=new Date();
+  fbDb.collection(COL).doc(id).update({contato_seq:d.getTime(),ultimo_contato:d.toLocaleString('pt-BR'),status:'Contatado'})}
+function desfazerContato(id){fbDb.collection(COL).doc(id).update({contato_seq:0,ultimo_contato:''})}
 function wa(tel){var d=(tel||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return '<a class="wa" target="_blank" href="https://wa.me/'+d+'">'+esc(tel)+' 🟢</a>'}
 function render(){
   var lista=DADOS.filter(passa);
-  lista.sort(function(a,b){var d=(PRIO_ORD[a.prioridade]||9)-(PRIO_ORD[b.prioridade]||9);if(d)return d;
-    if(a.base!==b.base)return a.base==='clientes'?-1:(b.base==='clientes'?1:0);return 0;});
+  lista.sort(function(a,b){
+    var sa=a.contato_seq||0,sb=b.contato_seq||0,na=sa===0,nb=sb===0;
+    if(na!==nb)return na?-1:1;                    // nunca contatado sobe; contatado desce
+    if(na){var d=(PRIO_ORD[a.prioridade]||9)-(PRIO_ORD[b.prioridade]||9);if(d)return d;
+      if(a.base!==b.base)return a.base==='clientes'?-1:(b.base==='clientes'?1:0);return 0;}
+    return sa-sb;                                  // ambos contatados: mais antigo 1º, recém-contatado no fim
+  });
   var st=document.getElementById('stats');
   var cli=lista.filter(function(o){return o.base==='clientes'}).length,
       lead=lista.filter(function(o){return o.base==='leads'}).length,
       ctel=lista.filter(function(o){return o.telefone}).length,
       ctrab=lista.filter(function(o){return (o.status||'A trabalhar')==='A trabalhar'}).length,
-      cfalta=lista.filter(incompleto).length;
+      cfalta=lista.filter(incompleto).length,
+      cfila=lista.filter(function(o){return !(o.contato_seq||0)}).length,
+      cfeito=lista.length-cfila;
   st.innerHTML='<span class="chip">Resultado: <b>'+lista.length+'</b></span>'+
+    '<span class="chip">📋 Na fila: <b>'+cfila+'</b></span><span class="chip">☎️ Contatados: <b>'+cfeito+'</b></span>'+
     '<span class="chip">Clientes: <b>'+cli+'</b></span><span class="chip">Leads: <b>'+lead+'</b></span>'+
     '<span class="chip">Com telefone: <b>'+ctel+'</b></span><span class="chip">A trabalhar: <b>'+ctrab+'</b></span>'+
     '<span class="chip">⚠️ Faltando info: <b>'+cfalta+'</b></span>';
@@ -152,7 +163,8 @@ function render(){
     var bcls=o.base==='clientes'?'b-cli':(o.base==='ambos'?'b-ambos':'b-lead');
     var stsel='<select class="st" onchange="setStatus(\''+o.__id+'\',this.value)">'+STATUS.map(function(s){return '<option'+((o.status||'A trabalhar')===s?' selected':'')+'>'+s+'</option>'}).join('')+'</select>';
     var pr=o.prioridade||'';
-    return '<tr><td><span class="pill p-'+esc(pr)+'">'+esc(pr||'—')+'</span></td>'+
+    var fila=(o.contato_seq||0)?('<button class="btn btn-cinza" style="padding:5px 8px" onclick="marcarContato(\''+o.__id+'\')">🔁 De novo</button><div class="mut" style="font-size:10px">contatado<br>'+esc(o.ultimo_contato||'')+' <a href="#" onclick="desfazerContato(\''+o.__id+'\');return false">✖</a></div>'):('<button class="btn" style="background:var(--verde);color:#fff;padding:6px 9px" onclick="marcarContato(\''+o.__id+'\')">☎️ Contatei</button>');
+    return '<tr><td>'+fila+'</td><td><span class="pill p-'+esc(pr)+'">'+esc(pr||'—')+'</span></td>'+
       '<td>'+esc(o.nome||'—')+'</td><td>'+esc(o.empresa||'')+'</td>'+
       '<td>'+esc(o.cidade||'')+(o.regiao?'<br><span class="mut">'+esc(o.regiao)+'</span>':'')+'</td>'+
       '<td>'+(o.telefone?wa(o.telefone):'<span class="mut">'+(o.obs_tel?esc(o.obs_tel):'—')+'</span>')+'</td>'+
