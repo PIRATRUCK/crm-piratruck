@@ -188,6 +188,8 @@ function renderHist(){
   document.getElementById('hfoot').textContent=all.length+' observação(ões).';
 }
 function wa(tel){var d=(tel||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return '<a class="wa" target="_blank" href="https://wa.me/'+d+'">'+esc(tel)+' 🟢</a>'}
+function fwd(o){var msg=encodeURIComponent((o.nome?o.nome+' — ':'')+(o.empresa?o.empresa+' — ':'')+(o.telefone||''));
+  return '<a class="wa" title="Encaminhar este contato no WhatsApp" target="_blank" href="https://api.whatsapp.com/send?text='+msg+'" style="margin-left:6px">↗️</a>'}
 function render(){
   var lista=DADOS.filter(passa);
   lista.sort(function(a,b){
@@ -220,7 +222,7 @@ function render(){
       '<td>'+esc(o.nome||'—')+'</td><td>'+esc(o.empresa||'')+'</td>'+
       '<td><input class="an" style="width:120px" value="'+esc(o.documento||'')+'" placeholder="CPF/CNPJ" onchange="setDocumento(\''+o.__id+'\',this.value)"></td>'+
       '<td>'+esc(o.cidade||'')+(o.regiao?'<br><span class="mut">'+esc(o.regiao)+'</span>':'')+'</td>'+
-      '<td>'+(o.telefone?wa(o.telefone):'<span class="mut">'+(o.obs_tel?esc(o.obs_tel):'—')+'</span>')+'</td>'+
+      '<td>'+(o.telefone?(wa(o.telefone)+fwd(o)):'<span class="mut">'+(o.obs_tel?esc(o.obs_tel):'—')+'</span>')+'</td>'+
       '<td>'+(o.email?'<a href="mailto:'+esc(o.email)+'">'+esc(o.email)+'</a>':'<span class="mut">—</span>')+'</td>'+
       '<td>'+esc(o.origem||'')+'<br><span class="pill '+bcls+'">'+esc(o.base)+'</span></td>'+
       '<td><input class="an" style="width:100px" value="'+esc(o.vendedor||'')+'" placeholder="dono..." onchange="setVend(\''+o.__id+'\',this.value)"></td>'+
