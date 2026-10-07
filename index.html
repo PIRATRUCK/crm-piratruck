@@ -54,12 +54,13 @@
   </div>
   <div id="viewContatos">
   <div class="filtros">
-    <input id="q" placeholder="🔎 buscar nome, empresa, e-mail, telefone, cidade..." oninput="render()">
+    <input id="q" placeholder="🔎 buscar nome, empresa, e-mail, telefone, cidade, CPF/CNPJ..." oninput="render()">
     <select id="fReg" onchange="render()"><option value="">Todas as regiões</option></select>
     <select id="fBase" onchange="render()"><option value="">Toda origem</option><option>clientes</option><option>leads</option><option>ambos</option></select>
     <select id="fSit" onchange="render()"><option value="">Toda situação</option></select>
     <select id="fStatus" onchange="render()"><option value="">Todo status</option></select>
     <select id="fTel" onchange="render()"><option value="">Com/sem telefone</option><option value="com">Só com telefone</option><option value="sem">Só sem telefone</option></select>
+    <select id="fDoc" onchange="render()"><option value="">Com/sem CPF/CNPJ</option><option value="com">Só com CPF/CNPJ</option><option value="sem">Só sem CPF/CNPJ</option></select>
     <select id="fFalta" onchange="render()"><option value="">Completude (todos)</option><option value="falta">⚠️ Faltando informação</option><option value="ok">✅ Cadastro completo</option></select>
     <select id="fPrio" onchange="render()"><option value="">Toda prioridade</option><option>Alta</option><option>Média</option><option>Baixa</option></select>
     <select id="fVend" onchange="render()"><option value="">Todo vendedor</option><option value="__sem">— sem dono —</option></select>
@@ -69,7 +70,7 @@
   <div class="stats" id="stats"></div>
   <div class="tbl">
     <table>
-      <thead><tr><th>Fila</th><th>Prior.</th><th>Nome</th><th>Empresa</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Vendedor</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
+      <thead><tr><th>Fila</th><th>Prior.</th><th>Nome</th><th>Empresa</th><th>CPF/CNPJ</th><th>Cidade / Região</th><th>Telefone</th><th>E-mail</th><th>Origem</th><th>Vendedor</th><th>Situação</th><th>Status</th><th>Anotação</th></tr></thead>
       <tbody id="tb"></tbody>
     </table>
     <div class="foot" id="foot"></div>
@@ -130,12 +131,18 @@ function passa(o){
   if(ff==='falta'&&!incompleto(o))return false;
   if(ff==='ok'&&incompleto(o))return false;
   var q=document.getElementById('q').value.toLowerCase().trim();
-  if(q){var t=(o.nome+' '+o.empresa+' '+o.email+' '+o.telefone+' '+o.cidade).toLowerCase();if(t.indexOf(q)<0)return false}
+  if(q){
+    var t=(o.nome+' '+o.empresa+' '+o.email+' '+o.telefone+' '+o.cidade+' '+(o.documento||'')).toLowerCase();
+    var qDig=q.replace(/\D/g,''),oDig=(o.documento||'').replace(/\D/g,'');
+    var matchDoc=qDig.length>=3&&oDig.indexOf(qDig)>=0;
+    if(t.indexOf(q)<0&&!matchDoc)return false;
+  }
   var fr=document.getElementById('fReg').value;if(fr&&o.regiao!==fr)return false;
   var fb=document.getElementById('fBase').value;if(fb&&o.base!==fb)return false;
   var fs=document.getElementById('fSit').value;if(fs&&o.situacao!==fs)return false;
   var fst=document.getElementById('fStatus').value;if(fst&&(o.status||'A trabalhar')!==fst)return false;
   var ft=document.getElementById('fTel').value;if(ft==='com'&&!o.telefone)return false;if(ft==='sem'&&o.telefone)return false;
+  var fdc=document.getElementById('fDoc').value;if(fdc==='com'&&!o.documento)return false;if(fdc==='sem'&&o.documento)return false;
   var fp=document.getElementById('fPrio').value;if(fp&&(o.prioridade||'')!==fp)return false;
   var fv=document.getElementById('fVend').value;if(fv==='__sem'&&(o.vendedor||''))return false;if(fv&&fv!=='__sem'&&(o.vendedor||'')!==fv)return false;
   var fd=document.getElementById('fDDD').value;if(fd&&getDDD(o)!==fd)return false;
@@ -145,6 +152,7 @@ var PRIO_ORD={'Alta':0,'Média':1,'Baixa':2};
 function setStatus(id,v){fbDb.collection(COL).doc(id).update({status:v})}
 function setNota(id,v){fbDb.collection(COL).doc(id).update({anotacao:v})}
 function setVend(id,v){fbDb.collection(COL).doc(id).update({vendedor:v})}
+function setDocumento(id,v){fbDb.collection(COL).doc(id).update({documento:v})}
 function marcarContato(id){var d=new Date();
   fbDb.collection(COL).doc(id).update({contato_seq:d.getTime(),ultimo_contato:d.toLocaleString('pt-BR'),status:'Contatado'})}
 function desfazerContato(id){fbDb.collection(COL).doc(id).update({contato_seq:0,ultimo_contato:''})}
@@ -210,6 +218,7 @@ function render(){
     var fila=(o.contato_seq||0)?('<button class="btn btn-cinza" style="padding:5px 8px" onclick="marcarContato(\''+o.__id+'\')">🔁 De novo</button><div class="mut" style="font-size:10px">contatado<br>'+esc(o.ultimo_contato||'')+' <a href="#" onclick="desfazerContato(\''+o.__id+'\');return false">✖</a></div>'):('<button class="btn" style="background:var(--verde);color:#fff;padding:6px 9px" onclick="marcarContato(\''+o.__id+'\')">☎️ Contatei</button>');
     return '<tr><td>'+fila+'</td><td><span class="pill p-'+esc(pr)+'">'+esc(pr||'—')+'</span></td>'+
       '<td>'+esc(o.nome||'—')+'</td><td>'+esc(o.empresa||'')+'</td>'+
+      '<td><input class="an" style="width:120px" value="'+esc(o.documento||'')+'" placeholder="CPF/CNPJ" onchange="setDocumento(\''+o.__id+'\',this.value)"></td>'+
       '<td>'+esc(o.cidade||'')+(o.regiao?'<br><span class="mut">'+esc(o.regiao)+'</span>':'')+'</td>'+
       '<td>'+(o.telefone?wa(o.telefone):'<span class="mut">'+(o.obs_tel?esc(o.obs_tel):'—')+'</span>')+'</td>'+
       '<td>'+(o.email?'<a href="mailto:'+esc(o.email)+'">'+esc(o.email)+'</a>':'<span class="mut">—</span>')+'</td>'+
@@ -222,7 +231,7 @@ function render(){
   }).join('');
   document.getElementById('foot').textContent=lista.length>CAP?('Mostrando os primeiros '+CAP+' de '+lista.length+' — refine os filtros pra ver o resto.'):(lista.length+' contato(s).');
 }
-function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fFalta','fPrio','fVend','fDDD'].forEach(function(i){document.getElementById(i).value=''});render()}
+function limpar(){['q','fReg','fBase','fSit','fStatus','fTel','fDoc','fFalta','fPrio','fVend','fDDD'].forEach(function(i){document.getElementById(i).value=''});render()}
 window.addEventListener('load',function(){
   showLogin();firebase.initializeApp(FB);fbAuth=firebase.auth();fbDb=firebase.firestore();
   fbAuth.onAuthStateChanged(function(u){if(u){hideLogin();start()}else{showLogin()}});
